@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Zonzon Macarası - Final Sürüm</title>
+    <style>
+        body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Courier New', Courier, monospace; overflow: hidden; }
+        #game-container { position: relative; width: 800px; height: 600px; background-color: #222; border: 4px solid #fff; box-shadow: 0 0 20px rgba(255,255,255,0.2); }
+        
+        .screen { width: 100%; height: 100%; background-size: contain; background-repeat: no-repeat; background-position: center; display: none; position: absolute; background-color: #000; }
+        .active { display: block; }
+        
+        #ui-layer { position: absolute; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+        .can-bar { position: absolute; top: 20px; right: 20px; color: #ff4757; font-size: 32px; text-shadow: 2px 2px #000; pointer-events: auto; background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 10px; }
+        .controls { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 20px; pointer-events: auto; }
+        
+        /* Genel Butonlar */
+        .btn { padding: 12px 20px; background: #e84393; color: white; border: 3px solid #fff; cursor: pointer; font-size: 14px; font-weight: bold; box-shadow: 4px 4px 0px #000; text-transform: uppercase; }
+        .btn:hover { background: #fd79a8; transform: translateY(-2px); }
+        
+        /* Tekrar Oyna Butonu - Kalp Renginde */
+        .btn-restart { background: #ff4757 !important; }
+        .btn-restart:hover { background: #ff6b81 !important; }
+        
+        .hidden { display: none; }
+
+        #bubbles-container { position: absolute; width: 100%; height: 100%; pointer-events: none; }
+        .bubble { 
+            position: absolute; background: white; border-radius: 20px; padding: 10px; 
+            border: 3px solid #333; font-size: 14px; font-weight: bold; text-align: center;
+            width: 150px; box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .bubble-right::after { content: ''; position: absolute; bottom: -12px; right: 20px; border-width: 12px 12px 0; border-style: solid; border-color: white transparent; }
+        .bubble-left::after { content: ''; position: absolute; bottom: -12px; left: 20px; border-width: 12px 12px 0; border-style: solid; border-color: white transparent; }
+
+        #typewriter { 
+            position: absolute; top: 100px; width: 100%; text-align: center; 
+            color: #ff4757; font-size: 26px; font-weight: bold; text-shadow: 2px 2px #000;
+            letter-spacing: 3px; pointer-events: none; line-height: 1.5;
+        }
+
+        /* Havlama Efekti - Sola Kaydırıldı */
+        .bark-effect {
+            position: absolute; color: white; font-weight: bold; font-size: 24px;
+            text-shadow: 2px 2px #ff4757; animation: barkUp 1s ease-out forwards;
+            pointer-events: none; z-index: 50;
+        }
+
+        @keyframes barkUp {
+            0% { transform: translateY(0) scale(0.5); opacity: 1; }
+            100% { transform: translateY(-80px) scale(1.5); opacity: 0; }
+        }
+
+        #kiz-popup-wrapper {
+            position: absolute; right: 40px; bottom: 120px; width: 180px; height: 180px;
+            display: none; animation: popIn 0.6s forwards; z-index: 20;
+        }
+        #kiz-heart-frame {
+            width: 100%; height: 100%; background-image: url('kiz_mutlu_popup.png'); background-size: cover; background-position: center;
+            clip-path: polygon(50% 15%, 80% 0%, 100% 20%, 100% 50%, 70% 90%, 50% 100%, 30% 90%, 0% 50%, 0% 20%, 20% 0%);
+            -webkit-clip-path: polygon(50% 15%, 80% 0%, 100% 20%, 100% 50%, 70% 90%, 50% 100%, 30% 90%, 0% 50%, 0% 20%, 20% 0%);
+        }
+
+        .heart { position: absolute; color: #ff4757; font-size: 30px; animation: fall linear forwards; pointer-events: none; }
+        @keyframes fall { 0% { transform: translateY(-50px); opacity: 1; } 100% { transform: translateY(650px); opacity: 0; } }
+        @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="screen-salon" class="screen active" style="background-image: url('salon.png');"></div>
+    <div id="screen-room" class="screen" style="background-image: url('bilgisayar_odasi.png');"></div>
+    <div id="screen-pozitif" class="screen" style="background-image: url('cocuk_pozitif.png');"></div>
+    <div id="screen-negatif" class="screen" style="background-image: url('cocuk_negatif.png');"></div>
+    <div id="screen-mutlu-son" class="screen" style="background-image: url('mutlu_son.png');"></div>
+    <div id="screen-mutsuz-son" class="screen" style="background-image: url('mutsuz_son.png');"></div>
+
+    <div id="ui-layer">
+        <div class="can-bar" id="can-display">❤️❤️❤️</div>
+        <div id="kiz-popup-wrapper">
+            <div style="position: absolute; top: -50px; right: -20px; background: white; border: 3px solid #ff4757; padding: 8px; border-radius: 15px; font-size: 12px; font-weight: bold; width: 200px; text-align: center;">Yine de you my home, you my heart. ❤️</div>
+            <div id="kiz-heart-frame"></div>
+        </div>
+        <div class="controls">
+            <button class="btn" id="btn-bul" onclick="aktiviteBul()">Aktivite Düşün</button>
+            <button class="btn hidden" id="btn-karar" onclick="kararVer()">Karar Ver!</button>
+            <button class="btn btn-restart hidden" id="btn-restart" onclick="oyunuSifirla()">TEKRAR OYNA ↻</button>
+        </div>
+        <div id="bubbles-container"></div>
+        <div id="typewriter"></div>
+    </div>
+</div>
+
+<script>
+    let can = 3;
+    const tumAktiviteler = ["Sushi yemeye gitmek", "Bilardo oynamaya gitmek", "Kartla speed oynamak", "Sinemaya gitmek", "Burger King yemeye gitmek", "Müzeye gitmek", "Yapboz alıp yapmak", "Sahile yürümek", "Paintball oynamaya gitmek", "Galatasaray maçına gitmek", "Vapurla karşıya geçmek", "Yemek yapma kursuna gitmek"];
+    const kabulEdilenler = ["Burger King yemeye gitmek", "Bilardo oynamaya gitmek", "Kartla speed oynamak"];
+    let mevcutSecenekler = [];
+    let kalpInterval;
+
+    function goster(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        document.getElementById('bubbles-container').innerHTML = "";
+        document.getElementById('typewriter').innerHTML = "";
+        document.getElementById('kiz-popup-wrapper').style.display = "none";
+        clearInterval(kalpInterval);
+    }
+
+    function oyunuSifirla() {
+        can = 3; document.getElementById('can-display').innerText = "❤️❤️❤️";
+        document.getElementById('btn-restart').classList.add('hidden');
+        document.getElementById('btn-bul').classList.remove('hidden');
+        goster('screen-salon');
+    }
+
+    function aktiviteBul() {
+        const container = document.getElementById('bubbles-container');
+        container.innerHTML = ""; mevcutSecenekler = [];
+        let copyAktiviteler = [...tumAktiviteler].sort(() => 0.5 - Math.random());
+        for(let i=0; i<4; i++) {
+            setTimeout(() => {
+                let act = copyAktiviteler[i]; mevcutSecenekler.push(act);
+                let b = document.createElement('div');
+                b.className = 'bubble bubble-left';
+                const pos = [{l:60, t:80}, {l:260, t:50}, {l:460, t:80}, {l:260, t:180}];
+                b.style.left = pos[i].l + "px"; b.style.top = pos[i].t + "px";
+                b.innerText = act; container.appendChild(b);
+            }, i * 350);
+        }
+        document.getElementById('btn-bul').classList.add('hidden');
+        setTimeout(() => { document.getElementById('btn-karar').classList.remove('hidden'); }, 1500);
+    }
+
+    function kararVer() {
+        let finalSecim = mevcutSecenekler[Math.floor(Math.random() * mevcutSecenekler.length)];
+        goster('screen-room');
+        document.getElementById('btn-karar').classList.add('hidden');
+        let b = document.createElement('div');
+        b.className = 'bubble bubble-right'; b.style.right = "100px"; b.style.top = "150px";
+        b.innerText = finalSecim + " nasıl fikir ?";
+        document.getElementById('bubbles-container').appendChild(b);
+        setTimeout(() => { cevapKontrol(finalSecim); }, 2000);
+    }
+
+    function cevapKontrol(secim) {
+        if(kabulEdilenler.includes(secim)) {
+            goster('screen-pozitif');
+            let b1 = document.createElement('div');
+            b1.className = 'bubble bubble-left'; b1.style.left = "100px"; b1.style.top = "150px";
+            b1.innerText = "Hadi kahve içip gidelim Zonzonum!";
+            document.getElementById('bubbles-container').appendChild(b1);
+            setTimeout(() => {
+                let b2 = document.createElement('div');
+                b2.className = 'bubble bubble-right'; b2.style.right = "100px"; b2.style.top = "250px";
+                b2.innerText = "Olliiiii, lavı yu !"; document.getElementById('bubbles-container').appendChild(b2);
+            }, 1500);
+            setTimeout(() => { goster('screen-mutlu-son'); baslatKalpYagmuru(); baslatFinalSekansi(); }, 4500);
+        } else {
+            can--; let h = ""; for(let i=0; i<can; i++) h += "❤️";
+            document.getElementById('can-display').innerText = h || "💔";
+            goster('screen-negatif');
+            setTimeout(() => {
+                if(can <= 0) { goster('screen-mutsuz-son'); pipaSekansi(); }
+                else { goster('screen-salon'); document.getElementById('btn-bul').classList.remove('hidden'); }
+            }, 4000);
+        }
+    }
+
+    function baslatKalpYagmuru() {
+        kalpInterval = setInterval(() => {
+            const heart = document.createElement('div');
+            heart.className = 'heart'; heart.innerHTML = '❤️';
+            heart.style.left = Math.random() * 750 + 'px';
+            heart.style.animationDuration = (Math.random() * 2 + 3) + 's';
+            document.getElementById('game-container').appendChild(heart);
+            setTimeout(() => { heart.remove(); }, 5000);
+        }, 300);
+    }
+
+    function baslatFinalSekansi() {
+        const line1 = "Zırtofis ile Mırtofis";
+        const line2 = "ve Kırçix";
+        const target = document.getElementById('typewriter');
+        let i = 0;
+
+        function typeLine1() {
+            if (i < line1.length) {
+                target.innerHTML += line1.charAt(i);
+                i++;
+                setTimeout(typeLine1, 120);
+            } else {
+                target.innerHTML += "<br>";
+                i = 0;
+                setTimeout(typeLine2, 500);
+            }
+        }
+
+        function typeLine2() {
+            if (i < line2.length) {
+                target.innerHTML += line2.charAt(i);
+                i++;
+                setTimeout(typeLine2, 120);
+            } else {
+                setTimeout(havHavEfekti, 500);
+            }
+        }
+        typeLine1();
+    }
+
+    function havHavEfekti() {
+        for(let i=0; i<3; i++) {
+            setTimeout(() => {
+                const hav = document.createElement('div');
+                hav.className = 'bark-effect';
+                hav.innerText = "Hav! Hav!";
+                // Köpek daha solda (left: 280px civarı)
+                hav.style.left = (280 + (Math.random() * 30)) + "px";
+                hav.style.top = "380px";
+                document.getElementById('game-container').appendChild(hav);
+                setTimeout(() => hav.remove(), 1000);
+            }, i * 400);
+        }
+        setTimeout(() => {
+            document.getElementById('btn-restart').classList.remove('hidden');
+        }, 1500);
+    }
+
+    function pipaSekansi() {
+        let b = document.createElement('div');
+        b.className = 'bubble bubble-left'; b.style.left = "500px"; b.style.top = "100px";
+        b.innerText = "Bana Pipa!"; document.getElementById('bubbles-container').appendChild(b);
+        setTimeout(() => { document.getElementById('kiz-popup-wrapper').style.display = "block"; document.getElementById('btn-restart').classList.remove('hidden'); }, 1500);
+    }
+</script>
+</body>
+</html>
